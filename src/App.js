@@ -16,7 +16,7 @@ const VideoCall = () => {
   const socket = useRef();
 
   useEffect(() => {
-    socket.current = io.connect("http://localhost:3000");
+    socket.current = io.connect("/");
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: true })
       .then((stream) => {
