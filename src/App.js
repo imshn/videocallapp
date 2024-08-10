@@ -17,7 +17,7 @@ const VideoCall = () => {
   const socket = useRef();
 
   useEffect(() => {
-    socket.current = io.connect("http://localhost:3000");
+    socket.current = io.connect("https://videocallapp-alpha.vercel.app/");
 
     socket.current.on("connect", () => {
       console.log("Connected to server");
