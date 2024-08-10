@@ -1,31 +1,44 @@
+const express = require("express");
 const http = require("http");
-const Socket = require("socket.io");
+const { Server } = require("socket.io");
 const cors = require("cors");
 
-const httpServer = http.createServer();
-const io = new Socket.Server(httpServer, {
+const app = express();
+app.use(cors());
+
+const server = http.createServer(app);
+const io = new Server(server, {
   cors: {
-    origin: "*"
+    origin: "*", // Be careful with this in production!
+    methods: ["GET", "POST"]
   }
 });
 
-io.on("connection", (socket) => {
+const PORT = 3000;
+
+const users = {};
+
+io.on("connection", socket => {
   console.log("New client connected");
-
-  socket.on("joinRoom", (roomName) => {
-    socket.join(roomName);
-    console.log(`User joined room ${roomName}`);
-  });
-
-  socket.on("sendMessage", (message) => {
-    console.log(`User sent message: ${message}`);
-    io.to(socket.room).emit("receiveMessage", message);
-  });
+  if (!users[socket.id]) {
+    users[socket.id] = socket.id;
+  }
+  socket.emit("yourID", socket.id);
+  io.sockets.emit("allUsers", users);
 
   socket.on("disconnect", () => {
     console.log("Client disconnected");
+    delete users[socket.id];
+    io.sockets.emit("allUsers", users);
+  });
+
+  socket.on("callUser", (data) => {
+    io.to(data.userToCall).emit("hey", { signal: data.signalData, from: data.from });
+  });
+
+  socket.on("acceptCall", (data) => {
+    io.to(data.to).emit("callAccepted", data.signal);
   });
 });
-httpServer.listen(3000, function(){
-  console.log("Listening...")
-});
+
+server.listen(PORT, () => console.log(`Server is running on port ${PORT}`));

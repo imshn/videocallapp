@@ -10,13 +10,24 @@ const VideoCall = () => {
   const [caller, setCaller] = useState("");
   const [callerSignal, setCallerSignal] = useState();
   const [callAccepted, setCallAccepted] = useState(false);
+  const [error, setError] = useState(null);
 
   const userVideo = useRef();
   const partnerVideo = useRef();
   const socket = useRef();
 
   useEffect(() => {
-    socket.current = io.connect("/");
+    socket.current = io.connect("http://localhost:3000");
+
+    socket.current.on("connect", () => {
+      console.log("Connected to server");
+    });
+
+    socket.current.on("connect_error", (err) => {
+      console.error("Connection error:", err);
+      setError("Failed to connect to server");
+    });
+
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: true })
       .then((stream) => {
@@ -24,23 +35,36 @@ const VideoCall = () => {
         if (userVideo.current) {
           userVideo.current.srcObject = stream;
         }
+      })
+      .catch((err) => {
+        console.error("Error accessing media devices:", err);
+        setError("Failed to access camera/microphone");
       });
 
     socket.current.on("yourID", (id) => {
+      console.log("Received ID:", id);
       setYourID(id);
     });
+
     socket.current.on("allUsers", (users) => {
+      console.log("All users:", users);
       setUsers(users);
     });
 
     socket.current.on("hey", (data) => {
+      console.log("Receiving call from:", data.from);
       setReceivingCall(true);
       setCaller(data.from);
       setCallerSignal(data.signal);
     });
+
+    return () => {
+      socket.current.disconnect();
+    };
   }, []);
 
   function callPeer(id) {
+    console.log("Calling peer:", id);
     const peer = new Peer({
       initiator: true,
       trickle: false,
@@ -48,6 +72,7 @@ const VideoCall = () => {
     });
 
     peer.on("signal", (data) => {
+      console.log("Sending signal to:", id);
       socket.current.emit("callUser", {
         userToCall: id,
         signalData: data,
@@ -62,12 +87,14 @@ const VideoCall = () => {
     });
 
     socket.current.on("callAccepted", (signal) => {
+      console.log("Call accepted");
       setCallAccepted(true);
       peer.signal(signal);
     });
   }
 
   function acceptCall() {
+    console.log("Accepting call from:", caller);
     setCallAccepted(true);
     const peer = new Peer({
       initiator: false,
@@ -107,6 +134,8 @@ const VideoCall = () => {
 
   return (
     <div>
+      {error && <div>Error: {error}</div>}
+      <div>Your ID: {yourID}</div>
       <div>
         {UserVideo}
         {PartnerVideo}
